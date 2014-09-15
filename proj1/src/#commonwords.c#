@@ -1,0 +1,100 @@
+/*
+ ============================================================================
+ Name	     : proj1.c
+ Author      : Darren Jennings
+ Version     :
+ Copyright   : Copyright 2014
+ Description : Hello World in C, Ansi-style
+ ============================================================================
+ */
+
+#include <stdio.h>
+#include <stdlib.h>
+#include "dbg.h"
+#include "list.h"
+#include "list.c"
+
+int is_sorted(List *words)
+{
+    LIST_FOREACH(words, first, next, cur) {
+	if(cur->next && strcmp(cur->value, cur->next->value) > 0) {
+	    debug("%s %s", (char *)cur->value, (char *)cur->next->value);
+	    return 0;
+	}
+
+    }
+
+    return 1;
+}
+
+void insertionSort(List *list)
+{
+
+	LIST_FOREACH(list, first, next, cur) {
+		//ListNode *tmp = cur;
+	    if(cur->prev != NULL && cur->next ) {
+	      free(cur->prev);
+	    }
+	  }
+
+		unsigned p, j;
+			for (p = 1; p < list->count; p++)
+			{
+				ListNode *tmp = FindNodeAtIndex(list,p);
+				for (j = p; j > 0 && tmp->value < FindNodeAtIndex(list,j-1)->value; j--)
+				{
+				  :q			a[j] = a[j - 1];
+				} // end for
+				a[j] = tmp;
+			}
+
+
+int main(int argc, char *argv[]) {
+	
+	static List *list = NULL;
+	list = List_create();
+	//int i=0;
+	/*while(i < argc) {
+		printf("\narg[%d]: %s\n", i, argv[i]);
+		i++;
+	}*/
+
+	FILE *thefirstfile;
+	FILE *thesecondfile;
+
+	FILE *outputfile;
+
+	char *filename1 = argv[1];
+	thefirstfile = fopen(filename1,"r");
+	thesecondfile = fopen("in2.txt","r");
+	outputfile = fopen("out.txt","w");
+	debug("\nFILENAME:in1.txt\n");
+	if (thefirstfile == NULL || thesecondfile == NULL) {
+	  fprintf(stderr, "Can't open input file in1.txt!\n");
+	  exit(1);
+	}
+
+	char *word = malloc(21 * sizeof(word));
+
+	while(fscanf(thefirstfile, "%s", word) != EOF) {
+		//debug("%s",word);
+		List_push(list,strdup(word));
+		fprintf(outputfile,"%s\n", word);
+		//fprintf("%s \n", word);
+	}
+	
+	//maList_makeIndices(list);
+	//printf("First value: %s\n",(char *)list->first->value);
+	//printf("First->Next value: %s\n",(char *)list->first->next->value);
+	List_print(list);
+//	printf("\nlast->prev->value: %s\n",(char *)list->last->prev->value);
+//	printf("\nfirst->next: %s\n",(char *)list->first->next->value);
+	printf("%d",is_sorted(list));
+	//List_destroy(list);
+	free(thefirstfile);
+	free(thesecondfile);
+	free(outputfile);
+	free(word);
+	debug("finished!");
+	return 0;
+}
