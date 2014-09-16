@@ -34,10 +34,11 @@ void List_print_words(List *list){
 	LIST_FOREACH(list, first, next, cur){
 	if(cur){
 			word *wrd = cur->value;
-			debug("word:%s, %d",wrd->text,wrd->count);
+			debug("%s, %d",wrd->text,wrd->count);
 		}
 	}
 }
+
 void addtoWord(word* word){
 	word->count++;
 }
@@ -115,14 +116,14 @@ List * insertionSort(List *list)
 	List_print(list);
 	LIST_FOREACH(list,first,next,cur1){
 		if(cur1->next){
-			if(strcmp(cur1->value,cur1->next->value) !=0 || cur1->next->value == ""){
+			if(strcmp(cur1->value,cur1->next->value) !=0){
 				word *wrd = create_word(cur1->value);
 				wrd->count = wordCount;
 				List_push(listUnique,wrd);
 				wordCount = 1;
-				debug("pushing %s onto unique with count: %d", wrd->text, wrd->count);
+				//debug("pushing %s onto unique with count: %d", wrd->text, wrd->count);
 			}else{
-				debug("wordCount++ = %d", wordCount);
+				//debug("wordCount++ = %d", wordCount);
 				wordCount++;
 			}
 		}else if(cur1->next == NULL){
@@ -130,7 +131,7 @@ List * insertionSort(List *list)
 				wrd->count = wordCount;
 				List_push(listUnique,wrd);
 				wordCount = 1;
-				debug("pushing %s onto unique with count: %d", wrd->text, wrd->count);
+				//debug("pushing %s onto unique with count: %d", wrd->text, wrd->count);
 			}
 	}
 	List_clear_destroy(list);
@@ -268,17 +269,22 @@ int main(int argc, char *argv[]) {
 
 	debug("PRINTING LIST:");
 	debug("list count: %d", list1Unique->count);	
-	List_print_words(list1Unique);
-	/*LIST_FOREACH(finalList, first, next, cur) {
-			word *word = cur->value;
-			printf("%s, %d\n", (char *)word->text, word->count);
-			free_word(word);
-	}*/
+	//List_print_words(list1Unique);
+	LIST_FOREACH(list1Unique, first, next, cur){
+		if(cur){
+				word *wrd = cur->value;
+				//debug("%s, %d\n",wrd->text,wrd->count);
+				fprintf(outputfile,"%s,%d\n",wrd->text,wrd->count);
+			}
+		}
 	
 
-	List_destroy(list1);
 	List_destroy(list2);
-	//List_destroy(finalList);
+	debug("list1 x");
+	//List_destroy(list2);
+	List_destroy(list1Unique);
+	//List_destroy(list2Unique);
+	List_destroy(finalList);
 	free(word1);
 	free(word2);
 	fclose(thefirstfile);
