@@ -20,8 +20,6 @@ typedef struct word {
 } word;
 
 word * create_word(char *);
-void destroy_word(word *);
-
 word * create_word(char * text)
 {
   word* word_ptr = (word *) malloc(sizeof(word));
@@ -54,37 +52,54 @@ int is_sorted(List *words)
 	if(cur->next && strcmp(cur->value, cur->next->value) > 0) {
 		//debug("%s %s", (char *)cur->value, (char *)cur->next->value);
 	    	return 0;
-	}
+		}
 
     }
 
     return 1;
 }
 
+void List_destroy_words(List *list)
+{
+  LIST_FOREACH(list, first, next, cur) {
+    if(cur->prev) {
+      word *wrdd = cur->prev->value;
+      //debug("Freeing %s...", wrdd->text);
+      free_word(wrdd);
+      free(cur->prev);
+    }
+  }
+
+  word *wrdd2 = list->last->value;
+  free_word(wrdd2);
+  free(list->last);
+  free(list);
+}
+
 void List_push_word(List *list, word *wrd)
 {
   ListNode *node = calloc(1, sizeof(ListNode));
   check_mem(node);
-  debug("\n\n**PUSHING %s",wrd->text);
+  //debug("\n\n**PUSHING %s",wrd->text);
   node->value = wrd;
-  debug("****node->value:%s",wrd->text);
+  //debug("****node->value:%s",wrd->text);
   if(list->last == NULL) {
-    debug("****list is null");
+    //debug("****list is null");
     list->first = node;
     list->last = node;
   } else {
-	debug("List is not null");
+	//debug("List is not null");
 	LIST_FOREACH(list, first, next, cur){
 	if(cur->next){
 			word *tehWord = cur->value;
-			debug("Comparing %s with %s",(char *)cur->value, wrd->text);
+			//debug("Comparing %s with %s",(char *)cur->value, wrd->text);
 			if(strcmp(wrd->text,tehWord->text)==0){
-				debug("the same!\n");
+				//debug("the same!\n");
 				tehWord->count++;
 			}
 		}
 	}
-    debug("******push stuff on the null list");
+    //debug("******push stuff on the null list");
    	list->last->next = node;
     	node->prev = list->last;
     	list->last = node;
@@ -96,10 +111,10 @@ void List_push_word(List *list, word *wrd)
 }
 
 
-List * insertionSort(List *list)
+void insertionSort(List *list, List *wordList)
 {
-	static List *listUnique = NULL;
-	listUnique = List_create();
+	//static List *listUnique = NULL;
+	//listUnique = List_create();
 	int wordCount = 1;
 	int sorted = 1;
 	do {
@@ -113,13 +128,13 @@ List * insertionSort(List *list)
             }
         }
     } while(!sorted);
-	List_print(list);
+	//List_print(list);
 	LIST_FOREACH(list,first,next,cur1){
 		if(cur1->next){
 			if(strcmp(cur1->value,cur1->next->value) !=0){
 				word *wrd = create_word(cur1->value);
 				wrd->count = wordCount;
-				List_push(listUnique,wrd);
+				List_push(wordList,wrd);
 				wordCount = 1;
 				//debug("pushing %s onto unique with count: %d", wrd->text, wrd->count);
 			}else{
@@ -129,13 +144,11 @@ List * insertionSort(List *list)
 		}else if(cur1->next == NULL){
 				word *wrd = create_word(cur1->value);
 				wrd->count = wordCount;
-				List_push(listUnique,wrd);
+				List_push(wordList,wrd);
 				wordCount = 1;
 				//debug("pushing %s onto unique with count: %d", wrd->text, wrd->count);
 			}
 	}
-	List_clear_destroy(list);
-	return listUnique;
 }
 
 int cmpWord(word* wrd1, word * wrd2){
@@ -173,12 +186,12 @@ int cmpWord(word* wrd1, word * wrd2){
 			}
 		}
 	}
-}*/
+}
 void FindCommonWords(List *list1, List *list2, List *commonList,FILE *output){
 	debug("*****FIND COMMON WORDS******");
 	LIST_FOREACH(list1, first,next,cur1) {
 	if(cur1->next){
-		debug("list1 cur1->value: %s",(char *)cur1->value);	
+		debug("list1 cur1->value: %s",(char *)cur1->value);
 		LIST_FOREACH(list2,first,next,cur2){
 		if(cur2->next){
 				debug("comparing %s with %s",(char *)cur2->value, (char *) cur1->value);
@@ -193,23 +206,56 @@ void FindCommonWords(List *list1, List *list2, List *commonList,FILE *output){
 		}
 	}
 }
+*/
+void FindCommonWords(List *list1, List *list2, List *commonList){
+	debug("*****FIND COMMON WORDS******");
+	LIST_FOREACH(list1, first,next,cur1) {
+		word *wordlist1 = cur1->value;
+		//debug("list1 cur1->value: %s",(char *)cur1->value);
+		LIST_FOREACH(list2,first,next,cur2){
+			word *wordlist2 = cur2->value;
+				//debug("comparing %s with %s",wordlist2->text, wordlist1->text);
+				if(strcmp(wordlist1->text,wordlist2->text) == 0){
+					//debug("%s is shared between the lists...", wordlist2->text);
+					word *thewrd = create_word(wordlist2->text);
+					thewrd->count = wordlist1->count + wordlist2->count;
+					List_push_word(commonList,thewrd);
+					}
+				}
+		}
+}
 
 int main(int argc, char *argv[]) {
 	
+
 	static List *list1 = NULL;
-	static List *list1Unique = NULL;
+	static List *list1WordUnique = NULL;
 	static List *list2 = NULL;
-	static List *list2Unique = NULL;
+	static List *list2WordUnique = NULL;
 	static List *finalList = NULL;
 	
+////////////////////////////////////
+//CREATE LISTS
+////////////////////////////////////
+
 	list1 = List_create();
 	list2 = List_create();
 	finalList = List_create();
+	list1WordUnique = List_create();
+	list2WordUnique = List_create();
+
+	//////////////////
+	//PRINT ARGS
+	//////////////////
 	//int i=0;
 	/*while(i < argc) {
 		printf("\narg[%d]: %s\n", i, argv[i]);
 		i++;
 	}*/
+
+////////////////////////////////////
+//INITIALIZE FILES
+////////////////////////////////////
 
 	char *filename1 = argv[1];
 	FILE *thefirstfile;
@@ -223,73 +269,82 @@ int main(int argc, char *argv[]) {
 	FILE *outputfile;
 	outputfile = fopen(filename3,"w"); // "w" - writing to the output
 
-
+	//Check that they exist
 	if (thefirstfile == NULL || thesecondfile == NULL) {
-	  fprintf(stderr, "Can't open the files!\n");
+	  fprintf(stderr, "Can't open the files! please check your argument list...\n");
 	  exit(1);
 	}
 
-	//
+////////////////////////////////////
+//
+// Fill the lists from the files in
+// the arguments.
+//
+////////////////////////////////////
+
 	//scan the first file in the arg list.
-	//
 	char *word1 = malloc(21 * sizeof(word1));
 	while(fscanf(thefirstfile, "%s", word1) != EOF) {
 		char *wordToCopy = strdup(word1);
 		List_push(list1,wordToCopy);
 		//fprintf(outputfile,"%s\n", word1);
+		//free(wordToCopy);
 	}
 
-	//
 	//scan the second file in the arg list.
-	//
 	char *word2 = malloc(21 * sizeof(word2));
 	while(fscanf(thesecondfile, "%s", word2) != EOF) {
 		char *wordToCopy = strdup(word2);
 		List_push(list2,wordToCopy);
+		//free(wordToCopy);
 	}
 	
-	//maList_makeIndices(list);
-	//printf("First value: %s\n",(char *)list->first->value);
-	//printf("First->Next value: %s\n",(char *)list->first->next->value);
 	debug("sorting list1...");
-	list1Unique = insertionSort(list1);	
-	//debug("sorting list2..");
-	//list2Unique = insertionSort(list2);
-	debug("********LIST1********");	
+	insertionSort(list1,list1WordUnique);
+	debug("sorting list2...");
+	insertionSort(list2,list2WordUnique);
 
-	debug("*********************");	
-	//debug("********LIST2********");	
+	//Check list of words*
 	//List_print_words(list2Unique);
-	debug("*********************");	
-//	printf("\nlast->prev->value: %s\n",(char *)list->last->prev->value);
-//	printf("\nfirst->next: %s\n",(char *)list->first->next->value);
-//	printf("%d",is_sorted(list1));
 
-	//FindCommonWords(list1,list2,finalList,outputfile);
+	/////////////////////////////////
+	//
+	// Find commonwords!
+	//
+	/////////////////////////////////
+	FindCommonWords(list1WordUnique,list2WordUnique,finalList);
 
-	debug("PRINTING LIST:");
-	debug("list count: %d", list1Unique->count);	
-	//List_print_words(list1Unique);
-	LIST_FOREACH(list1Unique, first, next, cur){
-		if(cur){
+	//debug("PRINTING LIST:");
+	//debug("list count: %d", finalList->count);
+	//List_print_words(finalList);
+	LIST_FOREACH(finalList, first, next, cur){
+			if(cur->next){
 				word *wrd = cur->value;
-				//debug("%s, %d\n",wrd->text,wrd->count);
 				fprintf(outputfile,"%s,%d\n",wrd->text,wrd->count);
 			}
+			if(cur->next == NULL){
+				word *wrd = cur->value;
+				fprintf(outputfile,"%s,%d",wrd->text,wrd->count);
+			}
 		}
-	
 
-	List_destroy(list2);
-	debug("list1 x");
-	//List_destroy(list2);
-	List_destroy(list1Unique);
-	//List_destroy(list2Unique);
-	List_destroy(finalList);
+/////////////////////////////////
+//
+// Free memory stuff
+//
+/////////////////////////////////
+	List_clear_destroy(list1);
+	List_clear_destroy(list2);
+	List_destroy_words(list1WordUnique);
+	List_destroy_words(list2WordUnique);
+	List_destroy_words(finalList);
 	free(word1);
 	free(word2);
 	fclose(thefirstfile);
 	fclose(thesecondfile);
 	fclose(outputfile);
+
 	debug("finished!");
+
 	return 0;
 }
