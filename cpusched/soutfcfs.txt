@@ -1,0 +1,4 @@
+pid: 1, arrival time:0, cpu burst:4, finish_time: 4, waiting_time: 0, 
+pid: 2, arrival time:4, cpu burst:19, finish_time: 0, waiting_time: 0, 
+pid: 3, arrival time:9, cpu burst:2, finish_time: 0, waiting_time: 0, 
+pid: 4, arrival time:14, cpu burst:3, finish_time: 0, waiting_time: 0, 
