@@ -110,7 +110,7 @@ void List_push_word(List *list, word *wrd)
   return;
 }
 
-
+//sorts AND makes the list unique.
 void insertionSort(List *list, List *wordList)
 {
 	//static List *listUnique = NULL;
