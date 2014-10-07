@@ -52,11 +52,11 @@ void schedulePS(List *pslist, algorithm alg){
 	//
 	////////////////////////////////////////////////////////////
 	if(alg == FCFS){
-		debug("FCFS!!!");
+		debug("****FCFS****");
 		int time_elapsed = 0;
 		LIST_FOREACH(pslist, first, next, cur){
 				process *ps = cur->value;
-				debug("Process %d, elapsed time: %d", ps->pid,time_elapsed);
+				//debug("Process %d, elapsed time: %d", ps->pid,time_elapsed);
 				ps->start_time = time_elapsed;
 				ps->finish_time = ps->start_time + ps->burst_time;
 				ps->waiting_time = ps->start_time - ps->arrival_time;
@@ -70,15 +70,15 @@ void schedulePS(List *pslist, algorithm alg){
 	//
 	////////////////////////////////////////////////////////////
 	if(alg == SRTF){
-		debug("SRTF!!!");
+		debug("****SRTF****");
 		int time_elapsed = 0;
 		int processesCompleted = 0;
-
-		List *psStack = List_create();
+		process *max = getMaxBurstTimePS(pslist);
+		//List *psStack = List_create();
 			for(time_elapsed=0;processesCompleted!=(pslist->count);time_elapsed++)
 			{
 				//keep filling the shortestps with the maxps for reference
-				process *shortestps = getMaxBurstTimePS(pslist);
+				process *shortestps = max;
 				LIST_FOREACH(pslist, first, next, cur)
 				{
 					process *ps = cur->value;
@@ -93,11 +93,11 @@ void schedulePS(List *pslist, algorithm alg){
 				{
 					processesCompleted++;
 					shortestps->finish_time = time_elapsed+1;
-					shortestps->waiting_time = shortestps->finish_time-shortestps->burst_time-shortestps->arrival_time;
-					List_push(psStack, shortestps);
+					shortestps->waiting_time = ((int)(time_elapsed+1)-(int)shortestps->burst_time)-(int)shortestps->arrival_time;
+					//List_push(pslist, shortestps);
 				}
 			}
-		pslist = psStack;
+		//pslist = psStack;
 	}
 }
 
@@ -120,13 +120,19 @@ void sortPSListByFinishTime(List *list)
 }
 
 process *getMaxBurstTimePS(List *list){
-	process *psmaxt = create_process(0,0,0,0,0,0,0);
+	process *psmaxt;// = create_process(0,0,0,0,0,0,0);
 	LIST_FOREACH(list, first, next, cur){
 				process *ps = cur->value;
-				if(ps->burst_time > psmaxt->burst_time){
+				if(psmaxt==NULL){
 					psmaxt = ps;
+				}else{
+					if(ps->burst_time > psmaxt->burst_time){
+						psmaxt = ps;
+					}
 				}
 			}
+	//debug("Done sorting...");
+	//free_process(psmaxt);
 	return psmaxt;
 }
 
@@ -140,11 +146,11 @@ int main(int argc, char *argv[]) {
 	//////////////////
 		//PRINT ARGS
 		//////////////////
-		int i=0;
+		/*int i=0;
 		while(i < argc) {
 			printf("\narg[%d]: %s\n", i, argv[i]);
 			i++;
-		}
+		}*/
 
 	////////////////////////////////////
 	//INITIALIZE FILES FROM ARGUMENTS
@@ -162,12 +168,13 @@ int main(int argc, char *argv[]) {
 		char *algorithm = argv[3];
 
 		// Get the limits on the number of processes to handle
-		// limit = 0 means no limit.
-		int limit = 0;
+		// limit = -1 means no limit.
+		int limit = -1;
 		if(argv[4] == NULL){
-			debug("Limit is infinite!!!");
+			debug("No limit. To infinity, and beyond.");
+			limit = -1;
 		}else{
-			limit = strtol(argv[4], &argv[4], 10);
+			limit = atoi(argv[4]);
 			debug("Limiting to %d processes", limit);
 		}
 
@@ -181,18 +188,17 @@ int main(int argc, char *argv[]) {
 		List *pslist = List_create();
 
 		//scan the file
-		char *id = malloc(21 * sizeof(id));
-		char *arrivalt = malloc(21 * sizeof(arrivalt));
-		char *burst = malloc(21 * sizeof(burst));
+		char *id = malloc(24 * sizeof(id));
+		char *arrivalt = malloc(24 * sizeof(arrivalt));
+		char *burst = malloc(24 * sizeof(burst));
 		int lineCount = 0; // lineCount for limiting number of processes.
-		if(limit>0){
 			while(fscanf(inputFILE, "%s %s %s", id,arrivalt,burst) != EOF && lineCount != limit) {
-				debug("%s, %s, %s",id,arrivalt,burst);
+				//debug("%s, %s, %s",id,arrivalt,burst);
 				lineCount++;
-				process *ps = create_process(strtol(id, NULL, 10),strtol(arrivalt, NULL, 10),strtol(burst, NULL, 10),0,0,0,strtol(burst, NULL, 10));
+				//process *ps = create_process((int)strtol(id, NULL, 12),(int)strtol(arrivalt, NULL, 12),(int)strtol(burst, NULL, 12),0,0,0,(int)strtol(burst, NULL, 12));
+				process *ps = create_process(atoi(id),atoi(arrivalt),atoi(burst),0,0,0,atoi(burst));
 				List_push(pslist,ps);
 			}
-		}
 
 		if(strcmp(algorithm,"FCFS") == 0){
 			schedulePS(pslist, FCFS);
@@ -211,7 +217,7 @@ int main(int argc, char *argv[]) {
 					}
 					if(cur->next == NULL){
 						process *ps = cur->value;
-						//debug("pid: %d, arrival time:%d, cpu burst:%d, finish_time: %d, waiting_time: %d, \n",ps->pid,ps->arrival_time,ps->burst_time, ps->finish_time, ps->waiting_time);
+					//	debug("pid: %d, arrival time:%d, cpu burst:%d, finish_time: %d, waiting_time: %d, \n",ps->pid,ps->arrival_time,ps->burst_time, ps->finish_time, ps->waiting_time);
 						fprintf(outputFILE, "%d %d %d %d\n",ps->pid,ps->arrival_time,ps->finish_time, ps->waiting_time);
 					}
 				}
@@ -222,16 +228,17 @@ int main(int argc, char *argv[]) {
 		//
 		/////////////////////////////////
 
-		debug("bout to free some shiz");
+		//debug("bout to free some shiz");
 		free(id);
 		free(arrivalt);
 		free(burst);
-		debug("bout to close input file");
+		//debug("bout to close input file");
 		fclose(inputFILE);
-		debug("bout to close output file");
+		//debug("bout to close output file");
 		fclose(outputFILE);
-		debug("bout to destroy");
+		//debug("bout to destroy");
 		List_clear_destroy(pslist);
+
 		debug("Finished....");
 	return 0;
 }
