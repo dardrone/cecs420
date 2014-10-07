@@ -26,13 +26,13 @@ typedef struct process {
   unsigned int start_time; //in milliseconds
   unsigned int finish_time; //in milliseconds
   unsigned int waiting_time; //in milliseconds
+  unsigned int burst_remaining; // in milliseconds
 } process;
 
-process * create_process(int, int, int, int, int, int);
+process * create_process(int, int, int, int, int, int, int);
 void free_process(process *);
-process *findshortestavailableprocess(List*,int);
-
-process * create_process(int id, int arrival_time, int burst, int start_time, int finish_time, int waiting_time)
+process * getMaxBurstTimePS(List *);
+process * create_process(int id, int arrival_time, int burst, int start_time, int finish_time, int waiting_time, int burst_remaining)
 {
   process* ps_ptr = (process *) malloc(sizeof(process));
   ps_ptr->pid = id;
@@ -41,6 +41,7 @@ process * create_process(int id, int arrival_time, int burst, int start_time, in
   ps_ptr->start_time = start_time;
   ps_ptr->finish_time = finish_time;
   ps_ptr->waiting_time = waiting_time;
+  ps_ptr->burst_remaining = burst_remaining;
   return ps_ptr;
 }
 
@@ -71,42 +72,64 @@ void schedulePS(List *pslist, algorithm alg){
 	if(alg == SRTF){
 		debug("SRTF!!!");
 		int time_elapsed = 0;
-		LIST_FOREACH(pslist, first, next, cur){
-				//process *shortestps = findshortestavailableprocess(pslist,time_elapsed);
-				process *ps = cur->value;
-				//debug("Shortest available process at time elapsed: %d is PID: %d", time_elapsed, shortestps->pid);
-				//ps->start_time =
-				/*debug("Process %d, elapsed time: %d", ps->pid,time_elapsed);
-				ps->start_time = time_elapsed;
-				ps->finish_time = ps->start_time + ps->burst_time;
-				ps->waiting_time = ps->start_time - ps->arrival_time;
-				*/
-				time_elapsed += ps->burst_time;
-			}
-		}
-}
+		int processesCompleted = 0;
 
-//Doesn't work.
-process *findshortestavailableprocess(List *list, int time_elapsed){
-	process *shortestps = list->first->value;
-	LIST_FOREACH(list, first, next, cur){
-			process *ps = cur->value;
-			if(ps->arrival_time <= time_elapsed){
-				debug("ABout to check if the shortestps (pid=%d) is really the shortest.",shortestps->pid);
-				if(shortestps->burst_time >= ps->burst_time){
-					debug("shortestps (pid=%d) is shorter than ps(pid=%d)",shortestps->pid, ps->pid);
-					if(shortestps->burst_time == ps->burst_time){
-						if(shortestps->arrival_time > ps->arrival_time){
-							shortestps = ps;
-						}
-					}else{
+		List *psStack = List_create();
+			for(time_elapsed=0;processesCompleted!=(pslist->count);time_elapsed++)
+			{
+				//keep filling the shortestps with the maxps for reference
+				process *shortestps = getMaxBurstTimePS(pslist);
+				LIST_FOREACH(pslist, first, next, cur)
+				{
+					process *ps = cur->value;
+					if(ps->arrival_time<=time_elapsed && ps->burst_remaining < shortestps->burst_remaining && ps->burst_remaining>0)
+					{
 						shortestps = ps;
+						//debug("Shortest is pid: %d",ps->burst_time);
 					}
 				}
+				shortestps->burst_remaining--;
+				if(shortestps->burst_remaining==0)
+				{
+					processesCompleted++;
+					shortestps->finish_time = time_elapsed+1;
+					shortestps->waiting_time = shortestps->finish_time-shortestps->burst_time-shortestps->arrival_time;
+					List_push(psStack, shortestps);
+				}
 			}
-		}
-	return shortestps;
+		pslist = psStack;
+	}
 }
+
+void sortPSListByFinishTime(List *list)
+{
+	int sorted;
+	do {
+	sorted = 1;
+        LIST_FOREACH(list, first, next, cur) {
+        	if(cur->next) {
+        	process *ps = cur->value;
+        	process *psn = cur->next->value;
+                if(ps->finish_time > psn->finish_time){
+                    ListNode_swap(cur, cur->next);
+                    sorted = 0;
+                }
+            }
+        }
+    } while(!sorted);
+}
+
+process *getMaxBurstTimePS(List *list){
+	process *psmaxt = create_process(0,0,0,0,0,0,0);
+	LIST_FOREACH(list, first, next, cur){
+				process *ps = cur->value;
+				if(ps->burst_time > psmaxt->burst_time){
+					psmaxt = ps;
+				}
+			}
+	return psmaxt;
+}
+
 void free_process(process* process)
 {
   free(process);
@@ -166,9 +189,8 @@ int main(int argc, char *argv[]) {
 			while(fscanf(inputFILE, "%s %s %s", id,arrivalt,burst) != EOF && lineCount != limit) {
 				debug("%s, %s, %s",id,arrivalt,burst);
 				lineCount++;
-				process *ps = create_process(strtol(id, NULL, 10),strtol(arrivalt, NULL, 10),strtol(burst, NULL, 10),0,0,0);
+				process *ps = create_process(strtol(id, NULL, 10),strtol(arrivalt, NULL, 10),strtol(burst, NULL, 10),0,0,0,strtol(burst, NULL, 10));
 				List_push(pslist,ps);
-
 			}
 		}
 
@@ -179,6 +201,7 @@ int main(int argc, char *argv[]) {
 			schedulePS(pslist,SRTF);
 		}
 
+		sortPSListByFinishTime(pslist);
 
 		LIST_FOREACH(pslist, first, next, cur){
 					if(cur->next){
