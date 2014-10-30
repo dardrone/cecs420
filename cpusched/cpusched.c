@@ -209,19 +209,29 @@ int main(int argc, char *argv[]) {
 
 		sortPSListByFinishTime(pslist);
 
+		float avgWaitingTime = 0;
+		float avgTurnAroundTime = 0;
 		LIST_FOREACH(pslist, first, next, cur){
 					if(cur->next){
 						process *ps = cur->value;
+						avgWaitingTime += ps->waiting_time;
+						avgTurnAroundTime += (ps->finish_time - ps->start_time);
 						//debug("pid: %d, arrival time:%d, cpu burst:%d, finish_time: %d, waiting_time: %d,",ps->pid,ps->arrival_time,ps->burst_time, ps->finish_time, ps->waiting_time);
 						fprintf(outputFILE, "%d %d %d %d\n",ps->pid,ps->arrival_time,ps->finish_time, ps->waiting_time);
 					}
 					if(cur->next == NULL){
 						process *ps = cur->value;
+						avgWaitingTime += ps->waiting_time;
+						avgTurnAroundTime += (ps->finish_time - ps->start_time);
 					//	debug("pid: %d, arrival time:%d, cpu burst:%d, finish_time: %d, waiting_time: %d, \n",ps->pid,ps->arrival_time,ps->burst_time, ps->finish_time, ps->waiting_time);
 						fprintf(outputFILE, "%d %d %d %d\n",ps->pid,ps->arrival_time,ps->finish_time, ps->waiting_time);
 					}
 				}
+		avgWaitingTime = avgWaitingTime / pslist->count;
+		avgTurnAroundTime = avgTurnAroundTime / pslist->count;
 
+		debug("Average Waiting time: %f", avgWaitingTime);
+		debug("Average Turn-around time: %f", avgTurnAroundTime);
 		/////////////////////////////////
 		//
 		// Free memory stuff
@@ -238,6 +248,7 @@ int main(int argc, char *argv[]) {
 		fclose(outputFILE);
 		//debug("bout to destroy");
 		List_clear_destroy(pslist);
+
 
 		debug("Finished....");
 	return 0;
