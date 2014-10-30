@@ -13,9 +13,18 @@
 #include "dbg.h"
 #include "list.h"
 #include "list.c"
+#include <pthread.h>
+#include <semaphore.h>
+
+#define MAXLINESIZE 1024
 
 // Bounded buffer list to be used by all threads.
 List *boundedBuffer;
+
+//Semaphores
+sem_t empty;
+sem_t full;
+sem_t mutex;
 
 typedef struct searchCommand {
 	char* keyword; // single word to search for. Doesn't include white space <SPACE>, <TAB>, or <NEWLINE>.
@@ -59,6 +68,10 @@ int main(int argc, char *argv[]) {
 	// initialize the list of processes
 	List *searchCommandList = List_create();
 
+    sem_init(&empty, 0, max); // max are empty
+	sem_init(&full, 0, 0);    // 0 are full
+	sem_init(&mutex, 0, 1);   // mutex
+
 	// Get the buffer size
 	int bufferSize = -1;
 	if(argv[2] == NULL || argv[2] <= 0){
@@ -68,6 +81,7 @@ int main(int argc, char *argv[]) {
 		bufferSize = atoi(argv[2]);
 		debug("BufferSize: %d", bufferSize);
 	}
+	debug("MAXLINESIZE: %d", MAXLINESIZE);
 
 	//scan the file
 	char *keywrd = malloc(24 * sizeof(keywrd));
