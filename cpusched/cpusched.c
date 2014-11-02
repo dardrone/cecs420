@@ -11,7 +11,6 @@ Name	     : proj1.c
 #include <stdio.h>
 #include <stdlib.h>
 #include "dbg.h"
-#include "list.h"
 #include "list.c"
 
 typedef enum {

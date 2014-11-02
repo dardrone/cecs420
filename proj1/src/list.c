@@ -1,5 +1,4 @@
 #include "list.h"
-#include "list.c"
 #include "dbg.h"
 
 List *List_create()
