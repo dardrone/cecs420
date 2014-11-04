@@ -1,6 +1,5 @@
 /home/djennings/eclipse-projects/spksp/searchdir/A is
 /home/djennings/eclipse-projects/spksp/searchdir/A is
-/home/djennings/eclipse-projects/spksp/searchdir/A is
 /home/djennings/eclipse-projects/spksp/searchdir/B is
 /home/djennings/eclipse-projects/spksp/searchdir/B is
 /home/djennings/eclipse-projects/spksp/searchdir/B is
