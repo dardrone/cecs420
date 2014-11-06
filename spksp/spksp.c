@@ -21,16 +21,21 @@
 #include <stdbool.h>
 #include <string.h>
 #include "mythreads.h"
+#include <unistd.h>
+#include <errno.h>
+#include <sys/wait.h>
+
 
 
 // Bounded buffer list to be used by all threads.
 List *boundedBuffer;
 
 List *itemList;
-
-int bufferSize = 0;
-
+int bufferSize;
 int threadCount = 0;
+
+int fill = 0;
+int use = 0;
 
 //Semaphores
 sem_t empty;
@@ -50,6 +55,20 @@ typedef struct item {
 
 } item;
 
+//function prototypes
+void List_print_searchCommands(List *);
+void free_searchCommand(searchCommand *);
+void free_item(item *);
+searchCommand * create_SearchCommand(char *, char *, char *);
+item * create_Item(char*, int, char*);
+bool has_txt_extension(char const *);
+void List_destroy_list_Items(List *);
+void List_destroy_list_SC(List *);
+void do_fillBoundedBuffer(item *);
+item *do_GetBoundedBuffer();
+void * printBoundedBuffer(void *);
+void * runSearchCommandForFile(void *);
+
 void List_print_searchCommands(List *list){
 	LIST_FOREACH(list, first, next, cur){
 	if(cur){
@@ -67,13 +86,6 @@ void List_print_items(List *list){
 		}
 	}
 }
-
-bool has_txt_extension(char const *);
-searchCommand * create_SearchCommand(char *, char *, char *);
-
-void free_searchCommand(searchCommand *);
-void free_item(item *);
-
 void free_searchCommand(searchCommand* delete_sc)
 {
   free(delete_sc->directoryPath);
@@ -88,7 +100,7 @@ void free_item(item *itm)
   free(itm->line);
   free(itm);
 }
-void runSearchCommandForFile(searchCommand *);
+//void runSearchCommandForFile(void *);
 
 searchCommand * create_SearchCommand(char *kw, char *path, char *filename)
 {
@@ -107,105 +119,6 @@ item * create_Item(char* filename, int matchLineNumber, char* lineItself)
 	itm_ptr->line = strdup(lineItself);
 
     return itm_ptr;
-}
-
-//helper concat function
-char* concat(char *s1, char s2)
-{
-    size_t len1 = strlen(s1);
-    size_t len2 = strlen(s2);
-    char *result = malloc(len1+len2+2);//
-    memcpy(result, s1, len1);
-    memcpy(result+len1, s2, len2+2);//
-    return result;
-}
-
-void addItemtoBoundedBuffer(item *itm){
-	sem_wait(&empty);
-	sem_wait(&mutex);
-	List_push(boundedBuffer,itm);
-	debug("added item!");
-	sem_post(&mutex);
-	sem_post(&full);
-}
-
-void runSearchCommandForFile(searchCommand *searchCmd){
-	//debug("SEARCH COMMAND: keyword: %s, %s,%s ", searchCmd->keyword, searchCmd->directoryPath, searchCmd->filename);
-	//FILE *f = fopen(concat(searchCmd->directoryPath,entry->d_name), "r");
-
-	if(strstr(searchCmd->filename,".txt")){
-
-	//debug("SEARCH COMMAND: keyword: %s, %s,%s ", searchCmd->keyword, searchCmd->directoryPath, searchCmd->d->d_name);
-	strcat(searchCmd->directoryPath, "/");
-	char* pathtoCopy = strcat(searchCmd->directoryPath,searchCmd->filename);
-	FILE *f = fopen(pathtoCopy, "r");
-
-	char str[MAXLINESIZE];
-	char fullString[MAXLINESIZE];
-	int lineNumber = 0;
-
-	if(f == NULL) {
-		  debug("Error opening file: %s", searchCmd->directoryPath);
-		  exit(-1);
-	}
-
-	//go through the file and find the matches
-	while(fgets(str, MAXLINESIZE, f) != NULL) {
-		//debug("STR IS: %s", str);
-		lineNumber++;
-		char * pch;
-		char * staticReferencePtr;
-		int found = 0;
-
-		//remove newline
-		if( str[strlen(str)-1] == '\n' ){
-			str[strlen(str)-1] = 0;
-		}
-
-		strcpy(fullString, str);
-
-		pch = strtok_r(str," ", &staticReferencePtr);//, &staticReferencePtr);
-
-		while (pch != NULL)
-		{
-			//debug("%s",pch);
-			if(strcmp(pch,searchCmd->keyword) == 0){
-				//debug("Keyword found! Line: %s", fullString);
-				item *itm = create_Item(searchCmd->filename,lineNumber,fullString);
-				List_push(itemList,itm);
-				//addItemtoBoundedBuffer(itm);
-				found = 1;
-				//debug("Item: %s has been added", itm->filename);
-			}
-			if(found==1){
-				break;
-			}else{
-				pch = strtok_r(NULL, " ",&staticReferencePtr);
-			}
-		}
-	}
-	}else{
-
-	}
-}
-item *do_GetBoundedBuffer() {
-  item *tmp = boundedBuffer->last;
-  return tmp;
-}
-
-void * printBoundedBuffer(void *arg) {
-  int tmp = 0;
-  while (tmp != -1) {
-    sem_wait(&full);
-    sem_wait(&mutex);
-    tmp = do_GetBoundedBuffer();
-    sem_post(&mutex);
-    sem_post(&empty);
-    if (tmp != -1) {
-      //printf("Consumer%d - Item with line number: %d, is extracted.\n", (*(item *)arg)->matchLineNumber, tmp);
-    }
-  }
-  return NULL;
 }
 
 bool has_txt_extension(char const *name)
@@ -247,42 +160,155 @@ void List_destroy_list_SC(List *list)
   free(list);
 }
 
+void do_fillBoundedBuffer(item *itm){
+  debug("Pushing item to bounded buffer...");
+	List_push(boundedBuffer,itm);
+  if(boundedBuffer->count == bufferSize) {
+	debug("Bounded buffer is full");
+
+  }
+}
+
+
+int do_GetBoundedBuffer() {
+  item *tmp = boundedBuffer->last->value;
+  if(boundedBuffer->count == bufferSize){
+	  tmp->matchLineNumber=-1;
+  }
+  return tmp->matchLineNumber;
+}
+/*
+int do_get() {
+  int tmp = buffer[use];
+  use++;
+  if (use == max) {
+    use = 0;
+  }
+  return tmp;
+}*/
+
+//consumer with arg=processid
+void * printBoundedBuffer(void *arg) {
+  int tmp = 0;
+  debug("Printing!");
+  while (tmp != -1) {
+    sem_wait(&full);
+    sem_wait(&mutex);
+    tmp = do_GetBoundedBuffer();
+    sem_post(&mutex);
+    sem_post(&empty);
+    if (stuffIntheBoundedBuffer) {
+      printf("Consumer%d - Item with line number: %d, is extracted.\n", (*(int *)arg), itm->matchLineNumber);
+    }
+  }
+  return NULL;
+}
+
+//producer
+void *runSearchCommandForFile(void *searchCmd){
+	struct searchCommand *searchCommd = searchCmd;
+	if(strstr(searchCommd->filename,".txt")){
+		//debug("SEARCH COMMAND: keyword: %s, %s,%s ", searchCommd->keyword, searchCommd->directoryPath, searchCommd->filename);
+
+		char* directoryPathcpy = strdup(searchCommd->directoryPath);
+		strcat(directoryPathcpy,"/");
+		char* filenamecpy = strdup(searchCommd->filename);
+		char* keywordcpy = strdup(searchCommd->keyword);
+		char* pathtoCopy = strcat(directoryPathcpy,filenamecpy);
+
+		debug("Path to copy: %s", pathtoCopy);
+		FILE *f = fopen(pathtoCopy, "r");
+		char str[MAXLINESIZE];
+		char fullString[MAXLINESIZE];
+		int lineNumber = 0;
+
+		if(f == NULL) {
+			  debug("Error opening file: %s", searchCommd->directoryPath);
+			  exit(-1);
+		}
+
+		//go through the file and find the matches
+		while(fgets(str, MAXLINESIZE, f) != NULL) {
+			//debug("STR IS: %s", str);
+			lineNumber++;
+			char * pch;
+			char * staticReferencePtr;
+			int found = 0;
+
+			//remove newline
+			if( str[strlen(str)-1] == '\n' ){
+				str[strlen(str)-1] = 0;
+			}
+
+			strcpy(fullString, str);
+
+			pch = strtok_r(str," ", &staticReferencePtr);//, &staticReferencePtr);
+
+			while (pch != NULL)
+			{
+				//debug("%s",pch);
+				if(strcmp(pch,keywordcpy) == 0){
+					//debug("Keyword found! Line: %s", fullString);
+					item *itm = create_Item(filenamecpy,lineNumber,fullString);
+					//List_push(itemList,itm);
+					//debug("before sem_wait... empty=%ld", empty.__size);
+					sem_wait(&empty);
+					sem_wait(&mutex);
+					do_fillBoundedBuffer(itm);
+					debug("added item!");
+					sem_post(&mutex);
+					sem_post(&full);
+					found = 1;
+					//debug("Item: %s has been added", itm->filename);
+				}
+				if(found==1){
+					break;
+				}else{
+					pch = strtok_r(NULL, " ",&staticReferencePtr);
+				}
+			}
+		}
+	}
+	return NULL;
+}
+
 int main(int argc, char *argv[]) {
 
 	if (argc != 3) {
 		debug("Check format. Should be \":~$ ./spksp commandFile bufferSize\"");
 	    exit(1);
 	}
-
-	char *commandFile = argv[1];
-	FILE *cmdFile;
-	cmdFile = fopen(commandFile,"r");
-
-	// initialize the bounded buffer list
-	//boundedBuffer = List_create();
-	itemList = List_create();
-
-	// initialize the list of processes
-	List *searchCommandList = List_create();
-
-    sem_init(&empty, 0, bufferSize); // buffer is empty
-	sem_init(&full, 0, 0);    // 0 are full
-	sem_init(&mutex, 0, 1);   // mutex
-
 	//Get BufferSize from argument
 	if(argv[2] == NULL || argv[2] <= 0){
 		debug("Check format. Should be \":~$ ./spksp commandFile bufferSize\"");
 		exit(1);
 	}else{
 		bufferSize = atoi(argv[2]);
-		//debug("BufferSize: %d", bufferSize);
+		debug("BufferSize: %d", bufferSize);
 	}
+
+	sem_init(&empty, 0, bufferSize); // buffer is empty
+	sem_init(&full, 0, 0);    // 0 are full
+	sem_init(&mutex, 0, 1);   // mutex
+
+	char *commandFile = argv[1];
+	FILE *cmdFile;
+	cmdFile = fopen(commandFile,"r");
+
+	// initialize the bounded buffer list
+	boundedBuffer = List_create();
+	itemList = List_create();
+
+	// initialize the list of processes
+	List *searchCommandList = List_create();
 
 	//scan the file
 	char *keywrd = malloc(24 * sizeof(keywrd));
 	char *path = malloc(24 * sizeof(path));
 	struct dirent * entry = malloc(24* sizeof(entry));
 
+
+	//Go through the commandfile to get all the search commands
 	while(fscanf(cmdFile, "%s %s", path, keywrd) != EOF){
 
 		char *pathtoCopy = strdup(path);
@@ -294,10 +320,10 @@ int main(int argc, char *argv[]) {
 			exit (EXIT_FAILURE);
 		}
 
-		//iterate through the files in the directoryPath of the searchCmd
+		//iterate through the files in the directoryPath of the searchCmd to build a list of
+		//threads that we will be creating.
 		while ((entry = readdir(d)) != NULL) {
 			if(strstr(entry->d_name,".txt") && (strcmp(entry->d_name, ".") != 0 || strcmp(entry->d_name, "..") != 0 )){
-
 				//debug("Has text extension: %s", entry->d_name);
 				searchCommand *sc = create_SearchCommand(keywrdToCopy, pathtoCopy, entry->d_name);
 				List_push(searchCommandList,sc);
@@ -312,27 +338,39 @@ int main(int argc, char *argv[]) {
 
 	//List_print_searchCommands(searchCommandList);
 
-	//pthread_t workerId[bufferSize];
+
+
+
+	//debug("%d",searchCommandList->count);
+
+	pthread_t
+		workerId[searchCommandList->count + 1],
+	    printerId;
+
 	//Iterate through the searchCommandlist and start the child processes...
 	LIST_FOREACH(searchCommandList, first, next, cur){
 		if(cur){
 			searchCommand *sc = cur->value;
-					//debug("Has text %s, %s", sc->d->d_name, sc->directoryPath);
-					threadCount++;
-					//Create Child process here for this each file.
-					//sc->d = entry2;
-					//debug("Creating thread with count = %d", count);
-					//wait(workerId[count]);
-					//printf("count is %d\n", threadCount);
-					if(strstr(sc->filename,".txt")){
-						runSearchCommandForFile(sc);
-					}
-					//Pthread_create(&workerId[threadCount], NULL, runSearchCommandForFile, sc);
-				}
+			//debug("Has text %s, %s", sc->directoryPath, sc->filename);
+			threadCount++;
+			//debug("%d", threadCount);
+			//debug("SEARCH COMMAND:%d keyword: %s,%s,%s ", threadCount, sc->keyword, sc->directoryPath, sc->filename);
+			//Create Child process here for this each file.
+			//runSearchCommandForFile(sc);
+			//debug("bufferSize: %d, threadCount: %d",bufferSize, threadCount);
+			if(threadCount <= searchCommandList->count){
+				//debug("SEARCH COMMAND:%d keyword: %s,%s,%s ", threadCount, sc->keyword, sc->directoryPath, sc->filename);
+				Pthread_create(&workerId[threadCount], NULL, runSearchCommandForFile, sc);
+			}
+		}
 	}
+
+	Pthread_create(&printerId, NULL, printBoundedBuffer, (void*)printerId);
 
 	List_print_items(itemList);
 
+	//int i;
+	//scanf ("%d",&i);
 	//DESTROY SHIT
 	/*List_destroy_list_SC(searchCommandList);
 	List_destroy_list_Items(itemList);
@@ -340,11 +378,12 @@ int main(int argc, char *argv[]) {
 	free(path);
 	fclose(cmdFile);*/
 
-	/*int j=0;
+	int j=0;
 	for(j=0; j < threadCount; ++j){
-		debug("%d",threadCount);
-	}*/
+		pthread_join(workerId[j],NULL);
+		debug("%d",j);
+	}
 
-	//debug("Finished!");
+	debug("Finished!");
 	return 0;
 }
