@@ -65,7 +65,7 @@ bool has_txt_extension(char const *);
 void List_destroy_list_Items(List *);
 void List_destroy_list_SC(List *);
 void do_fillBoundedBuffer(item *);
-item *do_GetBoundedBuffer();
+item * do_GetBoundedBuffer();
 void * printBoundedBuffer(void *);
 void * runSearchCommandForFile(void *);
 
@@ -86,16 +86,22 @@ void List_print_items(List *list){
 		}
 	}
 }
+
 void free_searchCommand(searchCommand* delete_sc)
 {
-  free(delete_sc->directoryPath);
+	debug("delete_sc %s, %s, %s", delete_sc->directoryPath,delete_sc->filename,delete_sc->keyword);
+	free(delete_sc->directoryPath);
+	debug("FREED");
+
   free(delete_sc->keyword);
   debug("killing list");
   free(delete_sc->filename);
   free(delete_sc);
 }
+
 void free_item(item *itm)
 {
+  debug("Freeing that shit");
   free(itm->filename);
   free(itm->line);
   free(itm);
@@ -131,19 +137,56 @@ bool has_txt_extension(char const *name)
 void List_destroy_list_Items(List *list){
 	LIST_FOREACH(list, first, next, cur) {
 	    if(cur->prev) {
-
-	      item *sc = cur->prev->value;
+	      item *wrdd = cur->prev->value;
 	      //debug("Freeing %s...", wrdd->text);
-	      free_item(sc);
+	      free_item(wrdd);
 	      free(cur->prev);
 	    }
 	  }
 
-	  item *itm = list->last->value;
-	  free_item(itm);
+	  item *wrdd2 = list->last->value;
+	  free_item(wrdd2);
 	  free(list->last);
 	  free(list);
 }
+
+void List_clear_list_item(List *list)
+{
+  LIST_FOREACH(list, first, next, cur) {
+    if(cur->prev) {
+    	item *delete_sc = cur->prev->value;
+    	//debug("delete_sc %s, %s, %s", delete_sc->directoryPath,delete_sc->filename,delete_sc->matchLineNumber);
+    	free_item(delete_sc);
+    }
+  }
+  free_item(list->last->value);
+      free(list->last);
+      debug("success on freeing the last shit");
+      list->count = 0;
+}
+
+void List_clear_list_SC(List *list)
+{
+  LIST_FOREACH(list, first, next, cur) {
+    if(cur) {
+    	//debug("delete_sc %s, %s, %s", delete_sc->directoryPath,delete_sc->filename,delete_sc->matchLineNumber);
+    	free_searchCommand((searchCommand*)cur->value);
+    	free(cur);
+    }
+  }
+}
+
+/*void List_clear_destroy_item(List *list){
+{
+  LIST_FOREACH(list, first, next, cur) {
+	if(cur) {
+		item *sc = cur->value;
+		free_item(sc);
+		free(cur);
+	}
+  }
+  free(list);
+}*/
 
 void List_destroy_list_SC(List *list)
 {
@@ -161,47 +204,90 @@ void List_destroy_list_SC(List *list)
 }
 
 void do_fillBoundedBuffer(item *itm){
-  debug("Pushing item to bounded buffer...");
+
+	debug("PRODUCING...");
+	debug("pushing itm:%d, %s, %s",itm->matchLineNumber,itm->filename,itm->line);
 	List_push(boundedBuffer,itm);
-  if(boundedBuffer->count == bufferSize) {
-	debug("Bounded buffer is full");
 
-  }
-}
-
-
-int do_GetBoundedBuffer() {
-  item *tmp = boundedBuffer->last->value;
+	//debug("done pushing itm:%d, %s, %s",itm->matchLineNumber,itm->filename,itm->line);
   if(boundedBuffer->count == bufferSize){
-	  tmp->matchLineNumber=-1;
-  }
-  return tmp->matchLineNumber;
+	//debug("Bounded buffer is full");
+	//List_pop(boundedBuffer);
+	int k=0;
+	for(k=0; k < boundedBuffer->count-1; k++){
+			List_pop(boundedBuffer);
+		}
+	}
+	use = 0;
+	debug("Just destroyed and created it, but count is %d", boundedBuffer->count);
 }
-/*
-int do_get() {
-  int tmp = buffer[use];
-  use++;
-  if (use == max) {
-    use = 0;
+
+
+/*void do_fill(int value) {
+  buffer[fill] = value;
+  fill++;
+  if (fill == max) {
+    fill = 0;
   }
-  return tmp;
 }*/
+
+
+item * do_GetBoundedBuffer() {
+  debug("CONSUMING...");
+  int i=0;
+  use++;
+  item *itm = boundedBuffer->last->value;
+  /*LIST_FOREACH(boundedBuffer, first, next, cur){
+	  if(cur){
+		  if(i<use-1){
+			  itm = cur->value;
+			  //debug("itm[i=%d,use=%d] found= %d, %s, %s", i,use, itm->matchLineNumber, itm->filename, itm->line);
+			  i++;
+		  }
+	  }
+  }*/
+
+  if (use == bufferSize) {
+      //debug("Used UP!!");
+	  use = 0;
+  }
+  //debug("itm[use=%d] found= %d, %s, %s", use, itm->matchLineNumber, itm->filename, itm->line);
+  //if(boundedBuffer->count == bufferSize){
+	  //debug("the buffer is full now...");
+  //}
+  return itm;
+}
 
 //consumer with arg=processid
 void * printBoundedBuffer(void *arg) {
-  int tmp = 0;
-  debug("Printing!");
-  while (tmp != -1) {
-    sem_wait(&full);
-    sem_wait(&mutex);
-    tmp = do_GetBoundedBuffer();
-    sem_post(&mutex);
-    sem_post(&empty);
-    if (stuffIntheBoundedBuffer) {
-      printf("Consumer%d - Item with line number: %d, is extracted.\n", (*(int *)arg), itm->matchLineNumber);
-    }
-  }
-  return NULL;
+	if(boundedBuffer->count>0){
+		//debug("bounded buffer count: %d",boundedBuffer->count);
+		//debug("Printing!");
+		sem_wait(&full);
+		sem_wait(&mutex);
+		item * tmp = do_GetBoundedBuffer();
+		if (tmp != NULL){
+					//debug("Consumer-%d - Item with line number: %d, is extracted.\n", (*(int *)arg), tmp->matchLineNumber);
+					//debug("%s:%d:%s\n",tmp->filename, tmp->matchLineNumber, tmp->line);
+					printf("%s:%d:%s\n",tmp->filename, tmp->matchLineNumber, tmp->line);
+				}
+		List_pop(boundedBuffer);
+		use--;
+		//debug("tmp found from bounded buffer:%d, %s, %s", tmp->matchLineNumber, tmp->filename, tmp->line);
+		sem_post(&mutex);
+		sem_post(&empty);
+
+		/*if(boundedBuffer->count == bufferSize){
+				debug("HEY");
+				sem_wait(&empty);
+					sem_wait(&mutex);
+					use = 0;
+					sem_post(&mutex);
+					sem_post(&full);
+			}*/
+	}
+
+	return NULL;
 }
 
 //producer
@@ -210,20 +296,21 @@ void *runSearchCommandForFile(void *searchCmd){
 	if(strstr(searchCommd->filename,".txt")){
 		//debug("SEARCH COMMAND: keyword: %s, %s,%s ", searchCommd->keyword, searchCommd->directoryPath, searchCommd->filename);
 
+
 		char* directoryPathcpy = strdup(searchCommd->directoryPath);
 		strcat(directoryPathcpy,"/");
 		char* filenamecpy = strdup(searchCommd->filename);
 		char* keywordcpy = strdup(searchCommd->keyword);
-		char* pathtoCopy = strcat(directoryPathcpy,filenamecpy);
+		char* pathtoCopy = malloc(sizeof(directoryPathcpy)+sizeof(filenamecpy)+2);
+		pathtoCopy = strcat(directoryPathcpy,filenamecpy);
 
-		debug("Path to copy: %s", pathtoCopy);
 		FILE *f = fopen(pathtoCopy, "r");
 		char str[MAXLINESIZE];
 		char fullString[MAXLINESIZE];
 		int lineNumber = 0;
 
 		if(f == NULL) {
-			  debug("Error opening file: %s", searchCommd->directoryPath);
+			  debug("Error opening file: %s", pathtoCopy);
 			  exit(-1);
 		}
 
@@ -254,8 +341,9 @@ void *runSearchCommandForFile(void *searchCmd){
 					//debug("before sem_wait... empty=%ld", empty.__size);
 					sem_wait(&empty);
 					sem_wait(&mutex);
+					debug("not empty, please put item in!");
 					do_fillBoundedBuffer(itm);
-					debug("added item!");
+					debug("added item! count:%d", boundedBuffer->count);
 					sem_post(&mutex);
 					sem_post(&full);
 					found = 1;
@@ -338,14 +426,11 @@ int main(int argc, char *argv[]) {
 
 	//List_print_searchCommands(searchCommandList);
 
-
-
-
 	//debug("%d",searchCommandList->count);
 
 	pthread_t
 		workerId[searchCommandList->count + 1],
-	    printerId;
+	    printerId[searchCommandList->count + 1];
 
 	//Iterate through the searchCommandlist and start the child processes...
 	LIST_FOREACH(searchCommandList, first, next, cur){
@@ -361,14 +446,13 @@ int main(int argc, char *argv[]) {
 			if(threadCount <= searchCommandList->count){
 				//debug("SEARCH COMMAND:%d keyword: %s,%s,%s ", threadCount, sc->keyword, sc->directoryPath, sc->filename);
 				Pthread_create(&workerId[threadCount], NULL, runSearchCommandForFile, sc);
+				Pthread_create(&printerId[threadCount], NULL, printBoundedBuffer, printerId);
 			}
 		}
 	}
 
-	Pthread_create(&printerId, NULL, printBoundedBuffer, (void*)printerId);
-
-	List_print_items(itemList);
-
+	//List_print_items(itemList);
+	debug("OUt of the woods...");
 	//int i;
 	//scanf ("%d",&i);
 	//DESTROY SHIT
@@ -378,12 +462,17 @@ int main(int argc, char *argv[]) {
 	free(path);
 	fclose(cmdFile);*/
 
-	int j=0;
+	int j=0, l=0;
 	for(j=0; j < threadCount; ++j){
-		pthread_join(workerId[j],NULL);
 		debug("%d",j);
+		pthread_join(workerId[j],NULL);
+	}
+	for(l=0; l < threadCount; ++l){
+			pthread_join(printerId[j],NULL);
+			debug("%d",j);
 	}
 
 	debug("Finished!");
 	return 0;
 }
+
