@@ -1,5 +1,6 @@
 #include "list.h"
 #include "dbg.h"
+#include "spksp.h"
 
 List *List_create()
 {
@@ -57,6 +58,39 @@ void List_clear_destroy(List *list)
   List_destroy(list);
 }
 
+void List_destroy_list_SC(List *list)
+{
+LIST_FOREACH(list, first, next, cur) {
+    if(cur->prev) {
+    	searchCommand *wrdd = cur->prev->value;
+      //debug("Freeing %s...", wrdd->text);
+    	free_searchCommand(wrdd);
+      free(cur->prev);
+    }
+  }
+
+  searchCommand *wrdd2 = list->last->value;
+  free_searchCommand(wrdd2);
+  free(list->last);
+  free(list);
+}
+
+void List_destroy_list_Items(List *list){
+	LIST_FOREACH(list, first, next, cur) {
+	    if(cur->prev) {
+	    	item *wrdd = cur->prev->value;
+	      //debug("Freeing %s...", wrdd->text);
+	    	free_item(wrdd);
+	      free(cur->prev);
+	    }
+	  }
+
+	  item *wrdd2 = list->last->value;
+	  free_item(wrdd2);
+	  free(list->last);
+	  free(list);
+}
+
 
 void List_push(List *list, void *value)
 {
@@ -83,6 +117,12 @@ void *List_pop(List *list)
 {
   ListNode *node = list->last;
   return node != NULL ? List_remove(list, node) : NULL;
+}
+
+void *List_pop_SC(List *list)
+{
+  ListNode *node = list->last;
+  return node != NULL ? List_remove_SC(list, node) : NULL;
 }
 
 void List_unshift(List *list, void *value)
@@ -140,6 +180,41 @@ void *List_remove(List *list, ListNode *node)
 
   list->count--;
   result = node->value;
+  free(node);
+
+ error:
+  return result;
+}
+
+void *List_remove_SC(List *list, ListNode *node)
+{
+  void *result = NULL;
+
+  check(list->first && list->last, "List is empty.");
+  check(node, "node can't be NULL");
+
+  if(node == list->first && node == list->last) {
+    list->first = NULL;
+    list->last = NULL;
+  } else if(node == list->first) {
+    list->first = node->next;
+    check(list->first != NULL, "Invalid list, somehow got a first that is NULL.");
+    list->first->prev = NULL;
+  } else if (node == list->last) {
+    list->last = node->prev;
+    check(list->last != NULL, "Invalid list, somehow got a next that is NULL.");
+    list->last->next = NULL;
+  } else {
+    ListNode *after = node->next;
+    ListNode *before = node->prev;
+    after->prev = before;
+    before->next = after;
+  }
+
+  list->count--;
+  result = node->value;
+  searchCommand *sc = node->value;
+  free_searchCommand(sc);
   free(node);
 
  error:

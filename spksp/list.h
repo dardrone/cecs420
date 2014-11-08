@@ -24,6 +24,10 @@ void List_clear_destroy(List *list);
 //void List_makeIndices(List *list);
 void List_print(List *list);
 
+//items and searchCommand
+void List_destroy_list_Items(List *);
+void List_destroy_list_SC(List *);
+
 #define List_count(A) ((A)->count)
 #define List_first(A) ((A)->first != NULL ? (A)->first->value : NULL)
 #define List_last(A) ((A)->last != NULL ? (A)->last->value : NULL)
@@ -35,6 +39,7 @@ void List_unshift(List *list, void *value);
 void *List_shift(List *list);
 
 void *List_remove(List *list, ListNode *node);
+void *List_remove_SC(List *list, ListNode *node);
 
 #define LIST_FOREACH(L, S, M, V) ListNode *_node = NULL;\
   ListNode *V = NULL;\
