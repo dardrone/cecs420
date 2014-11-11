@@ -122,7 +122,7 @@ void *List_pop(List *list)
 void *List_pop_SC(List *list)
 {
   ListNode *node = list->last;
-  return node != NULL ? List_remove_SC(list, node) : NULL;
+  return node != NULL ? List_remove(list, node) : NULL;
 }
 
 void List_unshift(List *list, void *value)
@@ -186,7 +186,7 @@ void *List_remove(List *list, ListNode *node)
   return result;
 }
 
-void *List_remove_SC(List *list, ListNode *node)
+/*void *List_remove_SC(List *list, ListNode *node)
 {
   void *result = NULL;
 
@@ -213,13 +213,13 @@ void *List_remove_SC(List *list, ListNode *node)
 
   list->count--;
   result = node->value;
-  searchCommand *sc = node->value;
-  free_searchCommand(sc);
+
+  //free_searchCommand(sc);
   free(node);
 
  error:
   return result;
-}
+}*/
 
 inline void ListNode_swap(ListNode *a, ListNode *b)
 {

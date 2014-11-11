@@ -89,8 +89,11 @@ searchCommand * create_SearchCommand(char *kw, char *path, char *filename)
 {
 	searchCommand* sc_ptr = (searchCommand *) malloc(sizeof(searchCommand));
 	sc_ptr->keyword = strdup(kw);
+	//sc_ptr->directoryPath = malloc(sizeof(path)+sizeof(filename)+2);
 	sc_ptr->directoryPath = strdup(path);
 	sc_ptr->filename = strdup(filename);
+	strcat(sc_ptr->directoryPath,"/");
+	strcat(sc_ptr->directoryPath,sc_ptr->filename);
     return sc_ptr;
 }
 
@@ -114,15 +117,7 @@ bool has_txt_extension(char const *name)
 
 
 void do_fillBoundedBuffer(item *itm){
-
 	List_push(boundedBuffer,itm);
-
-	if(boundedBuffer->count == bufferSize+1){
-		int k=0;
-		for(k=0; k < boundedBuffer->count; k++){
-			List_pop_SC(boundedBuffer);
-		}
-	}
 }
 
 
@@ -138,7 +133,7 @@ item * do_GetBoundedBuffer() {
 
 void * printBoundedBuffer(void *arg) {
 
-	debug("printerid: %d starting...", (*(int *)arg));
+	//debug("printerid: %d starting...", (*(int *)arg));
 	sem_wait(&full);
 	sem_wait(&mutex);
 	item * tmp = do_GetBoundedBuffer();
@@ -150,7 +145,7 @@ void * printBoundedBuffer(void *arg) {
 
 	sem_post(&mutex);
 	sem_post(&empty);
-	debug("printerid: %d finished...", (*(int *)arg));
+	//debug("printerid: %d finished...", (*(int *)arg));
 	return NULL;
 }
 
@@ -161,14 +156,14 @@ void *runSearchCommandForFile(void *searchCmd){
 		////debug("SEARCH COMMAND: keyword: %s, %s,%s ", searchCommd->keyword, searchCommd->directoryPath, searchCommd->filename);
 
 
-		char* directoryPathcpy = strdup(searchCommd->directoryPath);
+		/*char* directoryPathcpy = strdup(searchCommd->directoryPath);
 		strcat(directoryPathcpy,"/");
 		char* filenamecpy = strdup(searchCommd->filename);
 		char* keywordcpy = strdup(searchCommd->keyword);
 		char* pathtoCopy = malloc(sizeof(directoryPathcpy)+sizeof(filenamecpy)+2);
-		pathtoCopy = strcat(directoryPathcpy,filenamecpy);
-
-		FILE *f = fopen(pathtoCopy, "r");
+		pathtoCopy = strcat(directoryPathcpy,filenamecpy);*/
+		//debug("SEARCH COMMAND: keyword: %s, %s,%s", searchCommd->keyword, searchCommd->directoryPath, searchCommd->filename);
+		FILE *f = fopen(searchCommd->directoryPath, "r");
 		char str[MAXLINESIZE];
 		char fullString[MAXLINESIZE];
 		int lineNumber = 0;
@@ -198,9 +193,9 @@ void *runSearchCommandForFile(void *searchCmd){
 			while (pch != NULL)
 			{
 				////debug("%s",pch);
-				if(strcmp(pch,keywordcpy) == 0){
+				if(strcmp(pch,searchCommd->keyword) == 0){
 
-					item *itm = create_Item(filenamecpy,lineNumber,fullString);
+					item *itm = create_Item(searchCommd->filename,lineNumber,fullString);
 
 					sem_wait(&empty);
 					sem_wait(&mutex);
@@ -219,7 +214,9 @@ void *runSearchCommandForFile(void *searchCmd){
 				}
 			}
 		}
+
 	}
+
 	return NULL;
 }
 
@@ -255,7 +252,7 @@ int main(int argc, char *argv[]) {
 	//scan the file
 	char *keywrd = malloc(24 * sizeof(keywrd));
 	char *path = malloc(24 * sizeof(path));
-	struct dirent * entry = malloc(24* sizeof(entry));
+	struct dirent * entry;// = malloc(sizeof(entry));
 
 	int commandLineCount = 0;
 
@@ -286,7 +283,6 @@ int main(int argc, char *argv[]) {
 		}
 		free(pathtoCopy);
 		free(keywrdToCopy);
-		//free(d);
 	}
 
 	pthread_t
@@ -330,15 +326,17 @@ int main(int argc, char *argv[]) {
 	}
 
 	List_destroy_list_SC(searchCommandList);
+	//debug("%d", threadCount);
 	List_destroy(boundedBuffer);
 	//int i;
 	//scanf ("%d",&i);
 
 	free(keywrd);
 	free(path);
+	free(entry);
 	fclose(cmdFile);
 
-	debug("Finished!");
+	//debug("Finished!");
 	return 0;
 }
 
